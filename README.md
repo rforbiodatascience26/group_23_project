@@ -1,15 +1,11 @@
----
-title: "My Project"
-format: gfm
-jupyter: python3
----
+
 
 # group_23_project
 
-# Project Contributors
+## Project Contributors
 
 | Student ID | Name | GitHub Username |
-
+| --- | --- | --- |
 | s263504 | António Eduardo Gaspar | antonioegaspar|
 | s263496 | Ioannis Thymianidis | ****pending**** |
 | s263737 | Santiago Makoszay Castañon | santiagomakoszay-stack |
@@ -18,7 +14,7 @@ jupyter: python3
 
 ---
 
-# [Project Title]
+## [Project Title]
 
 [summary of the project in a few sentences]
 
