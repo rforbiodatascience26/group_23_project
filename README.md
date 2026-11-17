@@ -1,1 +1,36 @@
+---
+title: "My Project"
+format: gfm
+jupyter: python3
+---
+
 # group_23_project
+
+# Project Contributors
+
+| Student ID | Name | GitHub Username |
+
+| s263504 | António Eduardo Gaspar | antonioegaspar|
+| s263496 | Ioannis Thymianidis | ****pending**** |
+| s263737 | Santiago Makoszay Castañon | santiagomakoszay-stack |
+| s263481 | Theodoros Desiniotis | teo752 |
+| s252698 | Vigneswaran Sekar | vishwaa13 |
+
+---
+
+# [Project Title]
+
+[summary of the project in a few sentences]
+
+## Presentation
+****we will put the link to the presentation here****
+
+---
+
+## Data Retrieval
+The raw and processed data files are excluded from this repository, to obtain the dataset required to run the pipeline download from here:
+
+* **Source:** NCBI GEO
+* **Accession ID:** `GSE114489`
+* **Direct Link:** https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE114489
+* **Original paper:** https://aacrjournals.org/cancerres/article/78/17/4971/657524/Altered-Cell-Cycle-Control-Inflammation-and
