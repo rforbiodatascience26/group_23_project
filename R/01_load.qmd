@@ -3,4 +3,30 @@ title: "01_load"
 format: html
 ---
 
-test
+```{r}
+
+library(GEOquery)
+library(here)
+
+# Download the processed Series Matrix and annotations
+gse <- getGEO("GSE114489", GSEMatrix = TRUE)
+eset <- gse[[1]]
+
+# Extract the two datasets
+expression <- Biobase::exprs(eset)
+metadata <- Biobase::pData(eset)
+
+# Inspect the metadata
+dim(metadata)
+colnames(metadata)
+View(metadata)
+
+# Create data folder if needed
+dir.create(here("data"), showWarnings = FALSE)
+
+# Save datasets
+write.csv(metadata, here("data", "GSE114489_metadata.csv"))
+write.csv(expression, here("data", "GSE114489_expression.csv"))
+
+```
+
