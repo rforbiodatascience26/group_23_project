@@ -7,7 +7,7 @@
 | Student ID | Name | GitHub Username |
 | --- | --- | --- |
 | s263504 | António Eduardo Gaspar | antonioegaspar|
-| s263496 | Ioannis Thymianidis | ****pending**** |
+| s263496 | Ioannis Thymianidis | YiannisTh |
 | s263737 | Santiago Makoszay Castañon | santiagomakoszay-stack |
 | s263481 | Theodoros Desiniotis | teo752 |
 | s252698 | Vigneswaran Sekar | vishwaa13 |
