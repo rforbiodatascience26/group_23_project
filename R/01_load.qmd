@@ -6,6 +6,7 @@ format: html
 ```{r}
 
 library(GEOquery)
+library(Biobase)
 library(here)
 
 # Download the processed Series Matrix and annotations
@@ -13,8 +14,8 @@ gse <- getGEO("GSE114489", GSEMatrix = TRUE)
 eset <- gse[[1]]
 
 # Extract the two datasets
-expression <- Biobase::exprs(eset)
-metadata <- Biobase::pData(eset)
+expression <- exprs(eset)
+metadata <- pData(eset)
 
 # Inspect the metadata
 dim(metadata)
