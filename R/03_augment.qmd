@@ -1,0 +1,28 @@
+---
+title: "03_augment"
+format: html
+---
+##Load libraries and read data
+```{r}
+library(tidyverse)
+
+expr <- read_tsv("../data/02_clean_expression.tsv")
+meta <- read_tsv("../data/02_clean_metadata.tsv")
+```
+
+##Transpose the expression dataframe so columns become entrez IDs and rows become samples
+```{r}
+expr_transposed <- expr_clean |> 
+  pivot_longer(-ENTREZ_ID, names_to = "sample_id", values_to = "expr") |> 
+  pivot_wider(names_from = ENTREZ_ID, values_from = expr)
+```
+
+##Inner join expression to meta dataset into a combined wide dataset
+```{r}
+dat_aug <- meta_clean |> 
+  inner_join(expr_transposed, by = "sample_id")
+
+dim(dat_aug)
+slice_sample(dat_aug,n=10)
+```
+
