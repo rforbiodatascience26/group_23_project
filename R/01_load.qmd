@@ -4,10 +4,10 @@ format: html
 ---
 
 ```{r}
-library(tidyverse)
 library(GEOquery)
 library(Biobase)
 library(here)
+library(tidyverse)
 
 # Download the processed Series Matrix and annotations
 gse <- getGEO("GSE114489", GSEMatrix = TRUE)
@@ -41,4 +41,3 @@ write_tsv(
 )
 
 ```
-
