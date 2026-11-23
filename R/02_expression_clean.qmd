@@ -5,56 +5,59 @@ format: html
 
 ##Load libraries, read the data and drop NAs and Duplicates
 ```{r}
-library(tidyverse)
-library(hugene10sttranscriptcluster.db)
+library(hugene10sttranscriptcluster.db) 
+library(tidyverse)                     
 
 # 1. Load and clean expression matrix
-expr <- read_csv("../data/GSE114489_expression.csv")
-colnames(expr)[1] <- "probeID"
+expr_clean <- read_tsv("../data/01_exprsdat_load.tsv")
+colnames(expr_clean)[1] <- "probeID"
 
 #2. Drop NAs and duplicates
-initial <- dim(expr)
+initial <- dim(expr_clean)
 
-expr <- expr |> 
+expr_clean <- expr_clean |> 
   mutate(probeID = as.character(probeID)) |> 
   distinct(probeID, .keep_all = TRUE) |> 
   drop_na()
 
-final <- dim(expr)
+final <- dim(expr_clean)
 ```
 As we can see no NAs or duplicates existed in the data frame
 
 ##Map probeIDs to ENTREZ IDs
 
-We need to map each of the probe IDs to ENSEMBL IDs. to do that we first create a tibble with the ensembl IDs and then we join that tibble with the expr data frame. The microarray used Affymetrix Human Gene 1.0 ST Array (HuGene-1_0-st), so we look up into the corresponding annotation package
+We need to map each of the probe IDs to ENTREZ IDs. to do that we first create a tibble with the entrez IDs and then we join that tibble with the expr data frame. The microarray used Affymetrix Human Gene 1.0 ST Array (HuGene-1_0-st), so we look up into the corresponding annotation package
 
 ```{r}
 # 2. Query chip's annotation package
 probe_map <- AnnotationDbi::select(
   hugene10sttranscriptcluster.db,  
-  keys = as.character(expr$probeID),         
+  keys = as.character(expr_clean$probeID),         
   columns = "ENTREZID",
   keytype = "PROBEID"              
 ) |> 
   as_tibble() |> 
   dplyr::rename(probeID = PROBEID, ENTREZ_ID = ENTREZID) |>  #dplyr::because it would use base::rename instead and won't work
   dplyr::filter(!is.na(ENTREZ_ID)) |> 
-  dplyr::distinct(probeID, .keep_all = TRUE)
+  dplyr::distinct(probeID, .keep_all = TRUE) 
+
 ```
 
 ##Join ENTREZ IDs data frame to expr data frame
 ```{r}
-# 3. Join Entrez IDs to expression data
-expr_clean <- expr |> 
-  dplyr::inner_join(probe_map, by = "probeID") |>   #without dplyr:: its doesnt work even if tidyverse is loaded
-  dplyr::select(-probeID) |> 
-
+# 3. Join Entrez IDs to expression data and collapes probe duplicates to entrez IDs
+expr_clean <- expr_clean|> 
+  inner_join(probe_map, by = "probeID") |> 
+  select(-probeID) |> 
+  group_by(ENTREZ_ID) |> 
+  summarise(across(everything(), mean), .groups = "drop")
+  
 dim(expr_clean)
 glimpse(expr_clean[, 1:6])
 ```
 
 ##Save the expr_entrez to an .rds file to match metadata file format
 ```{r}
-write_rds(expr_clean, "../data/GSE114489_cleaned_entrez.rds")
+write_tsv(expr_clean, "../data/02_clean_expression.tsv")
 ```
 
