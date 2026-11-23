@@ -6,8 +6,8 @@ format: html
 Step 1: Load the packages to be used.
 
 ```{r}
-library(tidyverse)
 library(here)
+library(tidyverse)
 ```
 
 Step 2: Dive into the composition and content of the metadata set, as it relates to clinical annotations.
