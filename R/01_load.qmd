@@ -4,7 +4,7 @@ format: html
 ---
 
 ```{r}
-
+library(tidyverse)
 library(GEOquery)
 library(Biobase)
 library(here)
@@ -25,9 +25,20 @@ View(metadata)
 # Create data folder if needed
 dir.create(here("data"), showWarnings = FALSE)
 
+# Convert matrix to data frame (in order to save it as a TSV file in data), preserving feature IDs
+expression_df <- expression |>
+  as.data.frame() |>
+  rownames_to_column(var = "feature_id")
+
 # Save datasets
-write.csv(metadata, here("data", "GSE114489_metadata.csv"))
-write.csv(expression, here("data", "GSE114489_expression.csv"))
+write_tsv(
+  metadata,
+  here("data", "01_metadat_load.tsv")
+)
+write_tsv(
+  expression_df,
+  here("data", "01_exprsdat_load.tsv")
+)
 
 ```
 
