@@ -1,0 +1,22 @@
+---
+title: "02_clean"
+format: html
+---
+
+```{r}
+library(tidyverse)
+library(here)
+
+expression_annotated <- expression_long |>
+  left_join(
+    metadata_clean,
+    by = "sample_id",
+    relationship = "many-to-one"
+  )
+
+write_tsv(
+  expression_annotated,
+  here("data", "02_joint_clean.tsv")
+)
+```
+
