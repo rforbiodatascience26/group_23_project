@@ -170,9 +170,9 @@ So we prove that the reconstructed classification matches the published groups f
 Step 6: Save the cleaned dataset in the `data` folder.
 
 ```{r}
-#Choosing an RDS file to save intermediate produced datasets is useful because it preserves R data types, unlike CSV files.
+#Choosing an RDS file to save intermediate produced datasets is useful because it preserves R data types, unlike a TSV file.
 saveRDS(
   metadata_clean,
-  here("data", "GSE114489_metadata_clean.rds")
+  here("data", "02_metadat_clean.rds")
 )
 ```
