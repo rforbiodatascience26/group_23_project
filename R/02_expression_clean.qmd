@@ -33,7 +33,7 @@ We need to map each of the probe IDs to ENTREZ IDs. to do that we first create a
 probe_map <- AnnotationDbi::select(
   hugene10sttranscriptcluster.db,  
   keys = as.character(expr_clean$probeID),         
-  columns = "ENTREZID",
+  columns = c("ENTREZID","SYMBOL"),
   keytype = "PROBEID"              
 ) |> 
   as_tibble() |> 
@@ -49,14 +49,14 @@ probe_map <- AnnotationDbi::select(
 expr_clean <- expr_clean|> 
   inner_join(probe_map, by = "probeID") |> 
   select(-probeID) |> 
-  group_by(ENTREZ_ID) |> 
+  group_by(ENTREZ_ID, SYMBOL) |> 
   summarise(across(everything(), mean), .groups = "drop")
   
 dim(expr_clean)
 glimpse(expr_clean[, 1:6])
 ```
 
-##Save the expr_entrez to an .rds file to match metadata file format
+##Save the expr_clean to a tsv file
 ```{r}
 write_tsv(expr_clean, "../data/02_clean_expression.tsv")
 ```
