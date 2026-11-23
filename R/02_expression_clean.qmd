@@ -1,0 +1,12 @@
+---
+title: "02_expression_clean"
+format: html
+---
+
+#Load data
+```{r}
+library(tidyverse)
+
+expr <- read_csv("../data/GSE114489_expression.csv")
+```
+
