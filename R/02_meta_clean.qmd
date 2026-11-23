@@ -1,0 +1,178 @@
+---
+title: "02_meta_clean"
+format: html
+---
+
+Step 1: Load the packages to be used.
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+Step 2: Dive into the composition and content of the metadata set, as it relates to clinical annotations.
+
+```{r}
+
+# Inspect the available clinical fields (columns)
+names(metadata)
+
+# Look at the sample's descriptive columns and identify the type and distribution of their values
+metadata[, grep("characteristics|title|source",
+             names(metadata), ignore.case = TRUE),
+     drop = FALSE]
+
+```
+
+Step 3: Create a clean metadata tibble.
+
+```{r}
+#Create metadata_clean with metadata as a basis, retaining the relevant columns and transforming them as needed.
+metadata_clean <- metadata |>
+  rownames_to_column(var = "sample_id") |>
+  transmute(
+    sample_id,
+    original_group = str_extract(title, "Group [1-4]"),
+    age = as.numeric(`age:ch1`),
+    smoking_pack_years = as.numeric(`smoking pack/yr:ch1`),
+
+    baseline_ffpe_raw = `bl ffpe dx:ch1`,
+    baseline_frozen_raw = `bl frozen dx:ch1`,
+    followup_raw = `f/u bx dx:ch1`
+  ) |>
+  mutate(
+    baseline_ffpe = as.integer(
+      str_extract(baseline_ffpe_raw, "^[1-7]")
+    ),
+    baseline_frozen = as.integer(
+      str_extract(baseline_frozen_raw, "^[1-7]")
+    ),
+    followup = as.integer(followup_raw),
+
+    ffpe_angiogenic = str_detect(
+      baseline_ffpe_raw, "\\.1$"
+    ),
+    frozen_angiogenic = str_detect(
+      baseline_frozen_raw, "\\.1$"
+    )
+  )
+```
+
+```{r}
+#We drop 
+metadata_clean <- metadata_clean |>
+  select(
+    -baseline_ffpe_raw,
+    -baseline_frozen_raw,
+    -followup_raw
+  )
+```
+
+Step 4: Inspect metadata_clean and check that the transformations worked
+
+```{r}
+
+# Inspect the resulting dataset
+head(metadata_clean)
+
+# Check group sizes from the original titles
+table(metadata_clean$original_group)
+
+# Check missingness in the relevant variables
+colSums(is.na(metadata_clean))
+
+# Examine discrepancies between the baseline diagnoses
+metadata_clean |>
+  filter(
+    !is.na(baseline_ffpe),
+    baseline_ffpe != baseline_frozen
+  ) |>
+  select(
+    sample_id,
+    original_group,
+    baseline_ffpe,
+    baseline_frozen
+  )
+
+```
+
+The produced metadata_clean set contains 63 samples, with the expected distribution across the four clinical outcome groups, which provides a basic level that the study's information was retained after the cleaning process. Other than that, there are three important observations to be extracted from its inspection:
+
+-   Only `baseline_ffpe` contains one missing value. The raw column has no missing values because `"ND"` is a recorded string, but it becomes `NA` when we extract a numeric histological grade.
+
+-   11 of the 63 samples have different FFPE and frozen baseline grades. That's about 17.5% of the observations. However, all 11 differences are just one histological grade apart.
+
+-   These discrepancies don't represent contradictory clinical classifications**.** None crosses the boundary between nondysplastic (grades 1–2) and dysplastic (grades 4–7).
+
+Step 5: Reconstruct the groups presented in the article
+
+We reconstruct the clinical outcome group classifications ourselves using the clinical variables to validate the dataset further and reproduce the publication's results.\
+The histological scores are translated to classes as follows:
+
+| Histological score | Classification      |
+|--------------------|---------------------|
+| 1–2                | Nondysplastic       |
+| 3                  | Squamous metaplasia |
+| 4–7                | Dysplastic          |
+
+In order to be consistent with the two score 3 follow-up observations assigned to the regression group in the dataset, scores of 3 will be grouped with the nondysplastic outcomes.
+
+```{r}
+metadata_clean <- metadata_clean |>
+  mutate(
+    baseline_status = case_when(
+      baseline_frozen %in% 1:2 ~ "Nondysplastic",
+      baseline_frozen %in% 4:7 ~ "Dysplastic",
+      TRUE ~ NA_character_
+    ),
+
+    followup_status = case_when(
+      followup %in% 1:3 ~ "Nondysplastic",
+      followup %in% 4:7 ~ "Dysplastic",
+      TRUE ~ NA_character_
+    )
+  )
+```
+
+```{r}
+metadata_clean <- metadata_clean |>
+  mutate(
+    reconstructed_group = case_when(
+      baseline_status == "Dysplastic" &
+        followup_status == "Dysplastic" ~ "Group 1",
+
+      baseline_status == "Dysplastic" &
+        followup_status == "Nondysplastic" ~ "Group 2",
+
+      baseline_status == "Nondysplastic" &
+        followup_status == "Dysplastic" ~ "Group 3",
+
+      baseline_status == "Nondysplastic" &
+        followup_status == "Nondysplastic" ~ "Group 4",
+
+      TRUE ~ NA_character_
+    )
+  )
+```
+
+To validate the group reconstruction is correct, we produce the following table:
+
+```{r}
+table(
+  Original = metadata_clean$original_group,
+  Reconstructed = metadata_clean$reconstructed_group,
+  useNA = "ifany"
+)
+```
+
+So we prove that the reconstructed classification matches the published groups for all 63 observations.
+
+Step 6: Save the cleaned dataset in the `data` folder.
+
+```{r}
+#Choosing an RDS file to save intermediate produced datasets is useful because it preserves R data types, unlike CSV files.
+saveRDS(
+  metadata_clean,
+  here("data", "GSE114489_metadata_clean.rds")
+)
+```
