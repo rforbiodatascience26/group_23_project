@@ -37,17 +37,17 @@ probe_map <- AnnotationDbi::select(
   keytype = "PROBEID"              
 ) |> 
   as_tibble() |> 
-  dplyr::rename(probeID = PROBEID, ENTREZ_ID = ENTREZID) |>  #dplyr::because it would use base::rename instead
+  dplyr::rename(probeID = PROBEID, ENTREZ_ID = ENTREZID) |>  #dplyr::because it would use base::rename instead and won't work
   dplyr::filter(!is.na(ENTREZ_ID)) |> 
   dplyr::distinct(probeID, .keep_all = TRUE)
 ```
 
 ##Join ENTREZ IDs data frame to expr data frame
 ```{r}
-# 3. Join Entrez IDs to expression data and average duplicate genes
+# 3. Join Entrez IDs to expression data
 expr_clean <- expr |> 
   dplyr::inner_join(probe_map, by = "probeID") |>   #without dplyr:: its doesnt work even if tidyverse is loaded
-  dplyr::select(-probeID) 
+  dplyr::select(-probeID) |> 
 
 dim(expr_clean)
 glimpse(expr_clean[, 1:6])
