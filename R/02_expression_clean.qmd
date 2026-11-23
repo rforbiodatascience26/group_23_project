@@ -37,9 +37,9 @@ probe_map <- AnnotationDbi::select(
   keytype = "PROBEID"              
 ) |> 
   as_tibble() |> 
-  dplyr::rename(probeID = PROBEID, ENTREZ_ID = ENTREZID) |>  #dplyr::because it would use base::rename instead and won't work
-  dplyr::filter(!is.na(ENTREZ_ID)) |> 
-  dplyr::distinct(probeID, .keep_all = TRUE) 
+  rename(probeID = PROBEID, ENTREZ_ID = ENTREZID) |>  #dplyr::because it would use base::rename instead and won't work
+  filter(!is.na(ENTREZ_ID)) |> 
+  distinct(probeID, .keep_all = TRUE) 
 
 ```
 
