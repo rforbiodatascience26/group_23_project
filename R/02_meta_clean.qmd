@@ -62,7 +62,7 @@ metadata_clean <- metadata |>
 ```{r}
 #We drop 
 metadata_clean <- metadata_clean |>
-  select(
+  dplyr::select(
     -baseline_ffpe_raw,
     -baseline_frozen_raw,
     -followup_raw
@@ -88,7 +88,7 @@ metadata_clean |>
     !is.na(baseline_ffpe),
     baseline_ffpe != baseline_frozen
   ) |>
-  select(
+  dplyr::select(
     sample_id,
     original_group,
     baseline_ffpe,
