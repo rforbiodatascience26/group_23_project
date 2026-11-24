@@ -10,7 +10,7 @@ library(here)
 library(tidyverse)   #tidyverse last so no overshadowing from BioConductor packages
 
 # Download the processed Series Matrix and annotations
-gse <- getGEO("GSE114489", GSEMatrix = TRUE, )
+gse <- getGEO("GSE114489", GSEMatrix = TRUE)
 eset <- gse[[1]]
 
 # Extract the two datasets
