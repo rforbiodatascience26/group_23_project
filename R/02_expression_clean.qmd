@@ -9,7 +9,7 @@ library(hugene10sttranscriptcluster.db)
 library(tidyverse)                     
 
 # 1. Load and clean expression matrix
-expr_clean <- read_tsv("../data/01_exprsdat_load.tsv")
+expr_clean <- read_tsv("../data/01_expression_load.tsv")
 colnames(expr_clean)[1] <- "probeID"
 
 #2. Drop NAs and duplicates
