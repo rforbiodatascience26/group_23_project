@@ -13,6 +13,8 @@ library(tidyverse)
 Step 2: Dive into the composition and content of the metadata set, as it relates to clinical annotations.
 
 ```{r}
+# Load the metadata from the tsv file
+metadata <- read_tsv(here("data", "01_meta_load.tsv"))
 
 # Inspect the available clinical fields (columns)
 names(metadata)
@@ -29,7 +31,6 @@ Step 3: Create a clean metadata tibble.
 ```{r}
 #Create metadata_clean with metadata as a basis, retaining the relevant columns and transforming them as needed.
 metadata_clean <- metadata |>
-  rownames_to_column(var = "sample_id") |>
   transmute(
     sample_id,
     original_group = str_extract(title, "Group [1-4]"),
@@ -170,7 +171,7 @@ So we prove that the reconstructed classification matches the published groups f
 Step 6: Save the cleaned dataset in the `data` folder.
 
 ```{r}
-saveRDS(
+write_tsv(
   metadata_clean,
   here("data", "02_clean_metadata.tsv")
 )
