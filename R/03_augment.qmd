@@ -10,7 +10,7 @@ expr <- read_tsv("../data/02_clean_expression.tsv")
 meta <- read_tsv("../data/02_clean_metadata.tsv")
 ```
 
-##Transpose the expression dataframe so columns become entrez IDs and rows become samples
+##Transpose the expression dataframe so columns become entrez IDs and rows become samples, to match the format of the metadata
 ```{r}
 expr_transposed <- expr |>
   select(-SYMBOL)  |>            #symbol column is droped
@@ -26,6 +26,8 @@ dat_aug <- meta |>
 dim(dat_aug)
 slice_sample(dat_aug,n=10)
 ```
+##Add new columns if needed etc
+
 ##Write the dat_aug into a tsv file
 ```{r}
 write_tsv(dat_aug, here("data", "03_augmented_data.tsv"))
