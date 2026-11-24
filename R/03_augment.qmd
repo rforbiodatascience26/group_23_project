@@ -26,4 +26,8 @@ dat_aug <- meta |>
 dim(dat_aug)
 slice_sample(dat_aug,n=10)
 ```
-### more to do but cannot verify if conect cause NCBI server is down to download the data###
+##Write the dat_aug into a tsv file
+```{r}
+write_tsv(dat_aug, here("data", "03_augmented_data.tsv"))
+```
+
