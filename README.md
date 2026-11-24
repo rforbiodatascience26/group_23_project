@@ -24,8 +24,9 @@
 ---
 
 ## Data Retrieval
-The raw and processed data files are excluded from this repository, to obtain the dataset required to run the pipeline download from here:
+The raw data files are excluded from this repository. The retrieval happens automatically by downloading the Series Matrix from NCBI GEO with 01_load.qmd. The packages `GEOquery` and `Biobase`are used for this purpose and internet connection is required for this step. 
 
+Information about the data used and related links:
 * **Source:** NCBI GEO
 * **Accession ID:** `GSE114489`
 * **Direct Link:** https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE114489
