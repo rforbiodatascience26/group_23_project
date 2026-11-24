@@ -20,7 +20,7 @@ metadata <- pData(eset)
 # Inspect the metadata
 dim(metadata)
 colnames(metadata)
-View(metadata)
+head(metadata)
 
 # Create data folder if needed
 dir.create(here("data"), showWarnings = FALSE)
