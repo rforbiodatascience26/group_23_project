@@ -37,7 +37,7 @@ probe_map <- AnnotationDbi::select(
   keytype = "PROBEID"              
 ) |> 
   as_tibble() |> 
-  rename(probeID = PROBEID, ENTREZ_ID = ENTREZID) |>  #dplyr::because it would use base::rename instead and won't work
+  dplyr::rename(probeID = PROBEID, ENTREZ_ID = ENTREZID) |>  #dplyr::because it would use base::rename instead and won't work
   filter(!is.na(ENTREZ_ID)) |> 
   distinct(probeID, .keep_all = TRUE) 
 
@@ -48,7 +48,7 @@ probe_map <- AnnotationDbi::select(
 # 3. Join Entrez IDs to expression data and collapes probe duplicates to entrez IDs
 expr_clean <- expr_clean|> 
   inner_join(probe_map, by = "probeID") |> 
-  select(-probeID) |> 
+  dplyr::select(-probeID) |> 
   group_by(ENTREZ_ID, SYMBOL) |> 
   summarise(across(everything(), mean), .groups = "drop")
   
