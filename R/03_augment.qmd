@@ -59,9 +59,47 @@ dat_aug <- dat_aug |>
 
 dat_aug <- dat_aug |>
   relocate(smoking_exposure, .after = smoking_pack_years)
+```
 
-#New column classifying the ages based on the dataset's own distrib.
+New column classifying the ages based on the dataset's own distribution. There is no standard age classification for this cohort, so we use the data's own distribution. First we look at the descriptive statistics of `age`:
 
+```{r}
+dat_aug |>
+  pull(age) |>
+  summary()
+```
+
+The ages go from 43 to 77, with a median of 61. The 1st quartile is 55.5 and the 3rd quartile is 65. We use these two quartiles as cut-offs:
+
+-   **Younger**: below the 1st quartile (the youngest 25% of the samples)
+-   **Middle-aged**: between the 1st and 3rd quartile (the middle 50%)
+-   **Older**: above the 3rd quartile (the oldest 25%)
+
+```{r}
+#Create a new "age_group" column from the quartiles and convert it into an ordered factor
+dat_aug <- dat_aug |>
+  mutate(
+    age_group = case_when(
+      age < 55.5 ~ "Younger",
+      age <= 65 ~ "Middle-aged",
+      age > 65 ~ "Older"
+    )
+  )
+
+dat_aug <- dat_aug |>
+  mutate(
+    age_group = factor(
+      age_group,
+      levels = c("Younger", "Middle-aged", "Older"),
+      ordered = TRUE
+    )
+  )
+
+dat_aug <- dat_aug |>
+  relocate(age_group, .after = age)
+
+# Check how many samples are in each class
+count(dat_aug, age_group)
 ```
 
 ##Write the dat_aug into a tsv file
