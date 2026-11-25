@@ -1,0 +1,326 @@
+---
+title: "04_describe"
+format: html
+---
+
+## Load libraries and data
+
+```{r}
+library("here")
+library("tidyverse")
+
+dat_aug <- read_tsv(here("data/03_augmented_data.tsv"), show_col_types = FALSE)
+```
+
+A TSV file does not remember the order of factor levels, so we set the order of the two class columns again:
+
+```{r}
+dat_aug <- dat_aug |>
+  mutate(
+    smoking_exposure = factor(
+      smoking_exposure,
+      levels = c("Never smoker", "Light smoker", "Moderate smoker", "Heavy smoker")
+    ),
+    age_group = factor(
+      age_group,
+      levels = c("Younger", "Middle-aged", "Older")
+    )
+  )
+```
+
+The first 13 columns (`sample_id` to `followup_status`) are clinical data. Every other column is one gene, named by its Entrez ID. Entrez IDs are numbers, so we can select all gene columns with `matches("^[0-9]")` (column names that start with a digit).
+
+| Group   | Baseline → Follow-up            | Meaning                |
+|---------|---------------------------------|------------------------|
+| Group 1 | Dysplastic → Dysplastic         | Persistent dysplasia   |
+| Group 2 | Dysplastic → Nondysplastic      | Regressive dysplasia   |
+| Group 3 | Nondysplastic → Dysplastic      | Progressive            |
+| Group 4 | Nondysplastic → Nondysplastic   | Stable normal          |
+
+# Part 1: The outcome groups
+
+## 1. How many biopsies are in each group?
+
+```{r}
+ggplot(dat_aug, aes(x = outcome_group, fill = outcome_group)) +
+  geom_bar() +
+  labs(title = "Biopsies per group", x = NULL, y = "Count") +
+  theme(legend.position = "none")
+```
+
+## 2. Age and smoking by group
+
+```{r}
+ggplot(dat_aug, aes(x = outcome_group, y = age, fill = outcome_group)) +
+  geom_boxplot() +
+  labs(title = "Age by group", x = NULL, y = "Age (years)") +
+  theme(legend.position = "none")
+```
+
+```{r}
+ggplot(dat_aug, aes(x = outcome_group, y = smoking_pack_years, fill = outcome_group)) +
+  geom_boxplot() +
+  labs(title = "Smoking by group", x = NULL, y = "Pack-years") +
+  theme(legend.position = "none")
+```
+
+## 3. Histological transition: baseline → follow-up
+
+We count how many biopsies have each combination of baseline and follow-up grade. Bigger points mean more biopsies. Grades 4–7 are dysplasia, so the dashed line separates dysplastic (above) from nondysplastic (below) follow-up biopsies.
+
+```{r}
+dat_aug |>
+  count(outcome_group, baseline_frozen, followup) |>
+  ggplot(aes(x = baseline_frozen, y = followup, colour = outcome_group)) +
+  geom_point(aes(size = n)) +
+  geom_hline(yintercept = 3.5, linetype = "dashed") +
+  labs(
+    title = "Histological grade: baseline vs follow-up",
+    x = "Baseline grade",
+    y = "Follow-up grade",
+    colour = NULL,
+    size = "Biopsies"
+  )
+```
+
+# Part 2: The new clinical classes (`age_group` and `smoking_exposure`)
+
+## 4. Age distribution and the age classes
+
+Each bar is one age. The colours show the age class made in `03_augment` from the quartiles.
+
+```{r}
+ggplot(dat_aug, aes(x = age, fill = age_group)) +
+  geom_bar() +
+  labs(
+    title = "Age distribution and age classes",
+    x = "Age (years)",
+    y = "Count",
+    fill = "Age group"
+  )
+```
+
+## 5. How many samples are in each smoking class?
+
+```{r}
+ggplot(dat_aug, aes(x = smoking_exposure, fill = smoking_exposure)) +
+  geom_bar() +
+  labs(title = "Samples per smoking class", x = NULL, y = "Count") +
+  theme(legend.position = "none")
+```
+
+## 6. Are age and smoking related?
+
+```{r}
+dat_aug |>
+  summarise(correlation = cor(age, smoking_pack_years))
+```
+
+```{r}
+ggplot(dat_aug, aes(x = age, y = smoking_pack_years)) +
+  geom_point(aes(colour = smoking_exposure)) +
+  geom_smooth(method = "lm") +
+  labs(
+    title = "Older patients have smoked more pack-years",
+    x = "Age (years)",
+    y = "Pack-years",
+    colour = NULL
+  )
+```
+
+The same relationship, shown with the two classes:
+
+```{r}
+ggplot(dat_aug, aes(x = age_group, fill = smoking_exposure)) +
+  geom_bar() +
+  labs(title = "Smoking class within each age group", x = NULL, y = "Count", fill = NULL)
+```
+
+## 7. Are the classes balanced across the outcome groups?
+
+If one outcome group had many more heavy smokers or older patients, differences in gene expression between the groups could be caused by smoking or age instead of the disease.
+
+```{r}
+ggplot(dat_aug, aes(x = outcome_group, fill = smoking_exposure)) +
+  geom_bar() +
+  labs(title = "Smoking class within each outcome group", x = NULL, y = "Count", fill = NULL)
+```
+
+```{r}
+ggplot(dat_aug, aes(x = outcome_group, fill = age_group)) +
+  geom_bar() +
+  labs(title = "Age group within each outcome group", x = NULL, y = "Count", fill = NULL)
+```
+
+# Part 3: Gene expression
+
+## 8. Expression distribution per biopsy
+
+We calculate the mean expression of all genes in each biopsy. If the data are well normalised, all biopsies should have about the same mean. The y-axis starts at 0 so that small differences are not exaggerated.
+
+```{r}
+dat_aug |>
+  pivot_longer(cols = matches("^[0-9]"), names_to = "gene", values_to = "expression") |>
+  group_by(sample_id, outcome_group) |>
+  summarise(mean_expression = mean(expression)) |>
+  ggplot(aes(x = outcome_group, y = mean_expression)) +
+  geom_boxplot() +
+  geom_point() +
+  scale_y_continuous(limits = c(0, 8)) +
+  labs(title = "Mean gene expression per biopsy", x = NULL, y = "Mean log2 expression")
+```
+
+## 9. PCA
+
+```{r}
+pca <- dat_aug |>
+  select(matches("^[0-9]")) |>
+  prcomp(scale. = TRUE)
+```
+
+How much of the variation does each principal component explain?
+
+```{r}
+pca_variance <- tibble(
+  PC = 1:10,
+  variance_explained = pca$sdev[1:10]^2 / sum(pca$sdev^2)
+)
+
+ggplot(pca_variance, aes(x = PC, y = variance_explained)) +
+  geom_col() +
+  labs(title = "Variance explained by the first 10 PCs", x = "Principal component", y = "Proportion of variance")
+```
+
+```{r}
+pca_data <- bind_cols(
+  dat_aug |> select(outcome_group, baseline_status, baseline_frozen),
+  as_tibble(pca$x)
+)
+
+ggplot(pca_data, aes(x = PC1, y = PC2, colour = outcome_group, shape = baseline_status)) +
+  geom_point() +
+  labs(title = "PCA of all genes", colour = NULL, shape = "Baseline")
+```
+
+PC2 seems to separate the groups. We check whether it follows the histological grade of the biopsy:
+
+```{r}
+pca_data |>
+  summarise(correlation = cor(PC2, baseline_frozen))
+```
+
+```{r}
+ggplot(pca_data, aes(x = factor(baseline_frozen), y = PC2)) +
+  geom_boxplot() +
+  geom_point(aes(colour = outcome_group)) +
+  labs(title = "PC2 by histological grade", x = "Baseline grade", y = "PC2", colour = NULL)
+```
+
+## 10. Selected genes by outcome group
+
+Four marker genes (selected by Entrez ID): **MKI67** and **TOP2A** (cell division), **FOXJ1** (ciliated cells, normal airway) and **KRT6A** (squamous cells, seen in dysplasia).
+
+```{r}
+dat_aug |>
+  select(outcome_group, MKI67 = "4288", TOP2A = "7153", FOXJ1 = "2302", KRT6A = "3853") |>
+  pivot_longer(cols = -outcome_group, names_to = "gene", values_to = "expression") |>
+  ggplot(aes(x = gene, y = expression, fill = outcome_group)) +
+  geom_boxplot() +
+  labs(title = "Marker genes by group", x = NULL, y = "log2 expression", fill = NULL)
+```
+
+## 11. Smoking-related genes by smoking class
+
+**CYP1B1** (Entrez ID 1545) breaks down chemicals from cigarette smoke and is switched on by smoking. **SCGB1A1** (Entrez ID 7356) is made by protective club cells in the airway, which are lost in smokers.
+
+```{r}
+dat_aug |>
+  select(smoking_exposure, CYP1B1 = "1545", SCGB1A1 = "7356") |>
+  pivot_longer(cols = -smoking_exposure, names_to = "gene", values_to = "expression") |>
+  ggplot(aes(x = gene, y = expression, fill = smoking_exposure)) +
+  geom_boxplot() +
+  labs(title = "Smoking-related genes by smoking class", x = NULL, y = "log2 expression", fill = NULL)
+```
+
+## 12. Which genes are most correlated with the clinical variables?
+
+For every gene we calculate the correlation between its expression and age, pack-years and baseline histological grade.
+
+```{r}
+gene_cor <- dat_aug |>
+  pivot_longer(cols = matches("^[0-9]"), names_to = "ENTREZ_ID", values_to = "expression") |>
+  group_by(ENTREZ_ID) |>
+  summarise(
+    cor_age = cor(expression, age),
+    cor_pack_years = cor(expression, smoking_pack_years),
+    cor_grade = cor(expression, baseline_frozen)
+  )
+```
+
+How strong are the correlations for each clinical variable? Each box summarises the correlations of all genes.
+
+```{r}
+gene_cor |>
+  pivot_longer(cols = -ENTREZ_ID, names_to = "variable", values_to = "correlation") |>
+  ggplot(aes(x = variable, y = correlation)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(title = "Correlation of all genes with each clinical variable", x = NULL, y = "Correlation")
+```
+
+We add the gene symbols from the clean expression data and look at the top genes:
+
+```{r}
+symbols <- read_tsv(here("data/02_clean_expression.tsv"), show_col_types = FALSE) |>
+  select(ENTREZ_ID, SYMBOL) |>
+  mutate(ENTREZ_ID = as.character(ENTREZ_ID))
+
+gene_cor <- gene_cor |>
+  inner_join(symbols, by = "ENTREZ_ID")
+```
+
+Genes with the highest correlation with histological grade:
+
+```{r}
+gene_cor |>
+  arrange(desc(cor_grade)) |>
+  select(SYMBOL, cor_grade)
+```
+
+Genes with the most negative correlation with pack-years:
+
+```{r}
+gene_cor |>
+  arrange(cor_pack_years) |>
+  select(SYMBOL, cor_pack_years)
+```
+
+Genes with the highest correlation with age:
+
+```{r}
+gene_cor |>
+  arrange(desc(cor_age)) |>
+  select(SYMBOL, cor_age)
+```
+
+## Observations
+
+**Outcome groups**
+
+-   **Groups:** Group 1 is the largest (23 biopsies) and Group 3 the smallest (9), so results for Group 3 are less certain.
+-   **Histology:** Groups 1 and 3 are above the dashed line (dysplastic at follow-up) and Groups 2 and 4 are below it. No biopsy has grade 3 at baseline, so the groups also split left (nondysplastic) and right (dysplastic) at baseline. Group 1 biopsies mostly keep the same grade, while biopsies in Groups 2 and 3 change by several grades.
+
+**New clinical classes**
+
+-   **Age classes:** ages range from 43 to 77 (median 61). Using the 1st and 3rd quartiles as cut-offs gives Younger < 55.5 (16 samples), Middle-aged 55.5–65 (32) and Older > 65 (15).
+-   **Smoking classes are unbalanced:** more than half of the samples are heavy smokers (36). There are 17 moderate and 8 light smokers, and only 2 never-smokers. This is expected in a study of high-risk smokers, but results for "Never smoker" are based on only 2 samples.
+-   **Age and smoking are correlated** (r ≈ 0.45): older patients have smoked more pack-years, and the light and never smokers are mostly in the Younger group. Age and smoking are therefore not independent, which matters if both are used together to predict gene expression.
+-   **Balance across outcome groups:** the mix of smoking classes and age groups is roughly similar in all four outcome groups. Differences in expression between the groups are therefore probably not caused by age or smoking.
+
+**Gene expression**
+
+-   **Expression distribution:** all biopsies have almost the same mean expression (about 5.6–5.7), so the data are well normalised and no biopsy looks like a technical outlier.
+-   **PCA:** PC1 and PC2 explain about 26% and 12% of the variation. PC2 separates the groups. It increases with the baseline histological grade (r ≈ 0.6), so the second-largest source of variation in the data is how dysplastic the tissue is.
+-   **Marker genes:** the cell-division genes MKI67 and TOP2A are highest in Group 1 and lowest in Group 4. The squamous gene KRT6A is high in Group 1, while the ciliated-cell gene FOXJ1 is highest in Group 4 (normal airway).
+-   **Smoking genes:** the median CYP1B1 expression rises from light to moderate to heavy smokers, but the spread inside each class is very large, so smoking class alone is a weak predictor of this gene. SCGB1A1 goes the other way: it is high in never and light smokers, lower in moderate and heavy smokers, and is one of the genes most negatively correlated with pack-years (r ≈ −0.44). This fits with club cells being lost in heavy smokers.
+-   **Top correlated genes:** histological grade has by far the strongest correlations (up to r ≈ 0.68), and the top genes are cell-division genes (EZH2, TOP2A, PLK1 …) or squamous genes (KRT6A, KRT6B). Pack-years has weaker correlations (up to |r| ≈ 0.5) and age the weakest (up to r ≈ 0.4). So histology is linked to gene expression much more strongly than age or smoking.
