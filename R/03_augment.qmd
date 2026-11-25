@@ -26,7 +26,42 @@ dat_aug <- meta |>
 dim(dat_aug)
 slice_sample(dat_aug,n=10)
 ```
-##Add new columns if needed etc
+
+##Enriching the joint dataset with new columns useful for descriptive statistics and visualization
+```{r}
+#Create a new "smoking_exposure" column that categorizes the samples based on the values in "smoking_pack_years" according to th e classification proposed by Giuliano et al. (10.1001/jamaoto.2023.1573). These categories are then converted into an ordered factor.
+
+dat_aug <- dat_aug |>
+  mutate(
+    smoking_exposure = case_when(
+      smoking_pack_years == 0 ~ "Never smoker",
+      smoking_pack_years > 0 & smoking_pack_years <= 20 ~ "Light smoker",
+      smoking_pack_years > 20 & smoking_pack_years <= 40 ~ "Moderate smoker",
+      smoking_pack_years > 40 ~ "Heavy smoker",
+      TRUE ~ NA_character_
+    )
+  )
+
+dat_aug <- dat_aug |>
+  mutate(
+    smoking_exposure = factor(
+      smoking_exposure,
+      levels = c(
+        "Never smoker",
+        "Light smoker",
+        "Moderate smoker",
+        "Heavy smoker"
+      ),
+      ordered = TRUE
+    )
+  )
+
+dat_aug <- dat_aug |>
+  relocate(smoking_exposure, .after = smoking_pack_years)
+
+#New column classifying the ages based on the dataset's own distrib.
+
+```
 
 ##Write the dat_aug into a tsv file
 ```{r}

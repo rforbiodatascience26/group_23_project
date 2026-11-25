@@ -29,7 +29,7 @@ metadata[, grep("characteristics|title|source",
 Step 3: Create a clean metadata tibble.
 
 ```{r}
-#Create metadata_clean with metadata as a basis, retaining the relevant columns and transforming them as needed.
+# Create metadata_clean with metadata as a basis, retaining the relevant columns and transforming them as needed
 metadata_clean <- metadata |>
   transmute(
     sample_id,
@@ -166,7 +166,15 @@ table(
 )
 ```
 
-So we prove that the reconstructed classification matches the published groups for all 63 observations.
+So we have proved that the reconstructed classification matches the published groups for all 63 observations.
+```{r}
+# constructed_group is therefore no longer relevant and we can drop it so as to not include it in downstream datasets
+
+metadata_clean <- metadata_clean |>
+  dplyr::select(-reconstructed_group) |>
+  dplyr::rename(outcome_group = original_group)
+
+```
 
 Step 6: Save the cleaned dataset in the `data` folder.
 
