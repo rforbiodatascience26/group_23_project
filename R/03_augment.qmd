@@ -4,6 +4,7 @@ format: html
 ---
 ##Load libraries and read data
 ```{r}
+library(here)
 library(tidyverse)
 
 expr <- read_tsv("../data/02_clean_expression.tsv")
