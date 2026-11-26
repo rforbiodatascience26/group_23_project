@@ -3,30 +3,31 @@ title: "02_meta_clean"
 format: html
 ---
 
-Step 1: Load the packages to be used.
-
+##Load libraries and data
 ```{r}
 library(here)
 library(tidyverse)
+
+# Load the metadata from the tsv file
+metadata <- read_tsv(here("data", "01_meta_load.tsv"),
+                     show_col_types = FALSE)
 ```
 
-Step 2: Dive into the composition and content of the metadata set, as it relates to clinical annotations.
+##Clean metadata
+
+Step 1: Dive into the composition and content of the metadata set, as it relates to clinical annotations.
 
 ```{r}
-# Load the metadata from the tsv file
-metadata <- read_tsv(here("data", "01_meta_load.tsv"))
-
 # Inspect the available clinical fields (columns)
 names(metadata)
 
 # Look at the sample's descriptive columns and identify the type and distribution of their values
-metadata[, grep("characteristics|title|source",
-             names(metadata), ignore.case = TRUE),
-     drop = FALSE]
-
+metadata |> dplyr::select(
+    matches("characteristics|title|source")
+    )
 ```
 
-Step 3: Create a clean metadata tibble.
+Step 2: Create a clean metadata tibble.
 
 ```{r}
 # Create metadata_clean with metadata as a basis, retaining the relevant columns and transforming them as needed
@@ -37,39 +38,16 @@ metadata_clean <- metadata |>
     age = as.numeric(`age:ch1`),
     smoking_pack_years = as.numeric(`smoking pack/yr:ch1`),
 
-    baseline_ffpe_raw = `bl ffpe dx:ch1`,
-    baseline_frozen_raw = `bl frozen dx:ch1`,
-    followup_raw = `f/u bx dx:ch1`
-  ) |>
-  mutate(
-    baseline_ffpe = as.integer(
-      str_extract(baseline_ffpe_raw, "^[1-7]")
-    ),
-    baseline_frozen = as.integer(
-      str_extract(baseline_frozen_raw, "^[1-7]")
-    ),
-    followup = as.integer(followup_raw),
-
-    ffpe_angiogenic = str_detect(
-      baseline_ffpe_raw, "\\.1$"
-    ),
-    frozen_angiogenic = str_detect(
-      baseline_frozen_raw, "\\.1$"
-    )
+    baseline_ffpe = str_extract(`bl ffpe dx:ch1`, "^[1-7]") |> as.integer(),
+    baseline_frozen = str_extract(`bl frozen dx:ch1`, "^[1-7]") |> as.integer(),
+    followup = `f/u bx dx:ch1` |> as.integer(),
+    
+    ffpe_angiogenic = str_detect(`bl ffpe dx:ch1`, "\\.1$"),
+    frozen_angiogenic = str_detect(`bl frozen dx:ch1`, "\\.1$")
   )
 ```
 
-```{r}
-#We drop 
-metadata_clean <- metadata_clean |>
-  dplyr::select(
-    -baseline_ffpe_raw,
-    -baseline_frozen_raw,
-    -followup_raw
-  )
-```
-
-Step 4: Inspect metadata_clean and check that the transformations worked
+Step 3: Inspect metadata_clean and check that the transformations worked
 
 ```{r}
 
@@ -77,7 +55,8 @@ Step 4: Inspect metadata_clean and check that the transformations worked
 head(metadata_clean)
 
 # Check group sizes from the original titles
-table(metadata_clean$original_group)
+metadata_clean |> 
+  count(original_group)
 
 # Check missingness in the relevant variables
 colSums(is.na(metadata_clean))
@@ -103,11 +82,11 @@ The produced metadata_clean set contains 63 samples, with the expected distribut
 
 -   11 of the 63 samples have different FFPE and frozen baseline grades. That's about 17.5% of the observations. However, all 11 differences are just one histological grade apart.
 
--   These discrepancies don't represent contradictory clinical classifications**.** None crosses the boundary between nondysplastic (grades 1–2) and dysplastic (grades 4–7).
+-   These discrepancies don't represent contradictory clinical classifications. None crosses the boundary between nondysplastic (grades 1–2) and dysplastic (grades 4–7).
 
 Step 5: Reconstruct the groups presented in the article
 
-We reconstruct the clinical outcome group classifications ourselves using the clinical variables to validate the dataset further and reproduce the publication's results.\
+We reconstruct the clinical outcome group classifications ourselves using the clinical variables to validate the dataset further and reproduce the publication's results.
 The histological scores are translated to classes as follows:
 
 | Histological score | Classification      |
@@ -159,14 +138,17 @@ metadata_clean <- metadata_clean |>
 To validate the group reconstruction is correct, we produce the following table:
 
 ```{r}
-table(
-  Original = metadata_clean$original_group,
-  Reconstructed = metadata_clean$reconstructed_group,
-  useNA = "ifany"
-)
+metadata_clean |>
+  count(original_group, reconstructed_group) |>
+  pivot_wider(
+    names_from = reconstructed_group,
+    values_from = n,
+    values_fill = 0
+  )
 ```
 
 So we have proved that the reconstructed classification matches the published groups for all 63 observations.
+
 ```{r}
 # constructed_group is therefore no longer relevant and we can drop it so as to not include it in downstream datasets
 
@@ -176,7 +158,7 @@ metadata_clean <- metadata_clean |>
 
 ```
 
-Step 6: Save the cleaned dataset in the `data` folder.
+Step 5: Save the cleaned dataset in the `data` folder.
 
 ```{r}
 write_tsv(

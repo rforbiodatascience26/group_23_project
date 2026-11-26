@@ -52,7 +52,7 @@ probe_map <- AnnotationDbi::select(
 
 ##Join ENTREZ IDs data frame to expr data frame
 ```{r}
-# Join ENTREZ IDs to expression data and collapse probe duplicates to ENTREZ IDs
+# Join ENTREZ IDs to expression data and collapse probe duplicates to ENTREZ IDs by averaging the values
 expr_clean <- expr_clean|> 
   inner_join(probe_map, by = "probeID") |> 
   dplyr::select(-probeID) |> 
