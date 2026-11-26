@@ -2,30 +2,30 @@
 title: "03_augment"
 format: html
 ---
-##Load libraries and read data
+##Load libraries and data
 ```{r}
 library(here)
 library(tidyverse)
 
-expr <- read_tsv("../data/02_clean_expression.tsv")
-meta <- read_tsv("../data/02_clean_metadata.tsv")
+expr_clean <- read_tsv("../data/02_clean_expression.tsv", show_col_types = FALSE)
+metadata_clean <- read_tsv("../data/02_clean_metadata.tsv", show_col_types = FALSE)
 ```
 
 ##Transpose the expression dataframe so columns become entrez IDs and rows become samples, to match the format of the metadata
 ```{r}
-expr_transposed <- expr |>
-  dplyr::select(-SYMBOL)  |>            #symbol column is droped
-  pivot_longer(-ENTREZ_ID, names_to = "sample_id", values_to = "expr") |> 
-  pivot_wider(names_from = ENTREZ_ID, values_from = expr)
+expr_transposed <- expr_clean |>
+  dplyr::select(-SYMBOL)  |>            #symbol column is dropped
+  pivot_longer(-ENTREZ_ID, names_to = "sample_id", values_to = "expr_clean") |> 
+  pivot_wider(names_from = ENTREZ_ID, values_from = expr_clean)
 ```
 
 ##Inner join expression to meta dataset into a combined wide dataset
 ```{r}
-dat_aug <- meta |> 
+dat_aug <- metadata_clean |> 
   inner_join(expr_transposed, by = "sample_id")
 
 dim(dat_aug)
-slice_sample(dat_aug,n=10)
+slice_sample(dat_aug, n=10)
 ```
 
 ##Enriching the joint dataset with new columns useful for descriptive statistics and visualization
@@ -34,30 +34,20 @@ slice_sample(dat_aug,n=10)
 
 dat_aug <- dat_aug |>
   mutate(
-    smoking_exposure = case_when(
-      smoking_pack_years == 0 ~ "Never smoker",
-      smoking_pack_years > 0 & smoking_pack_years <= 20 ~ "Light smoker",
-      smoking_pack_years > 20 & smoking_pack_years <= 40 ~ "Moderate smoker",
-      smoking_pack_years > 40 ~ "Heavy smoker",
-      TRUE ~ NA_character_
-    )
-  )
-
-dat_aug <- dat_aug |>
-  mutate(
     smoking_exposure = factor(
-      smoking_exposure,
-      levels = c(
-        "Never smoker",
-        "Light smoker",
-        "Moderate smoker",
-        "Heavy smoker"
+      case_when(
+        smoking_pack_years == 0 ~ "Never smoker",
+        smoking_pack_years > 0 & smoking_pack_years <= 20 ~ "Light smoker",
+        smoking_pack_years > 20 & smoking_pack_years <= 40 ~ "Moderate smoker",
+        smoking_pack_years > 40 ~ "Heavy smoker",
       ),
+      levels = c("Never smoker",
+                 "Light smoker",
+                 "Moderate smoker",
+                 "Heavy smoker"),
       ordered = TRUE
     )
-  )
-
-dat_aug <- dat_aug |>
+  ) |> 
   relocate(smoking_exposure, .after = smoking_pack_years)
 ```
 
@@ -102,7 +92,7 @@ dat_aug <- dat_aug |>
 count(dat_aug, age_group)
 ```
 ```{r}
-# Create a new column regarding the progression status of the disease
+# Create new columns regarding the progression status of the disease
 dat_aug <- dat_aug |> 
   mutate(
     progression_status = factor(
@@ -110,9 +100,9 @@ dat_aug <- dat_aug |>
         outcome_group == "Group 1" ~ "Persistent",
         outcome_group == "Group 2" ~ "Regressive",
         outcome_group == "Group 3" ~ "Progressive",
-        outcome_group == "Group 4" ~ "Stable",
+        outcome_group == "Group 4" ~ "Stable non-dysplasia"
       ),
-      levels = c("Persistent", "Regressive", "Progressive", "Stable")
+      levels = c("Stable non-dysplasia", "Persistent", "Regressive dysplasia", "Progressive")
     )
   ) |> 
   relocate(progression_status, .after = outcome_group)
