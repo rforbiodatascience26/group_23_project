@@ -107,10 +107,12 @@ dat_aug <- dat_aug |>
   mutate(
     progression_status = factor(
       case_when(
-        outcome_group %in% c("Group 1", "Group 3") ~ "Persistent",
-        outcome_group %in% c("Group 2", "Group 4") ~ "Regressive"
+        outcome_group == "Group 1" ~ "Persistent",
+        outcome_group == "Group 2" ~ "Regressive",
+        outcome_group == "Group 3" ~ "Progressive",
+        outcome_group == "Group 4" ~ "Stable",
       ),
-      levels = c("Regressive", "Persistent")
+      levels = c("Persistent", "Regressive", "Progressive", "Stable")
     )
   ) |> 
   relocate(progression_status, .after = outcome_group)
