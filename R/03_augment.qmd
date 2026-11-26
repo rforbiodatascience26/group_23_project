@@ -101,6 +101,20 @@ dat_aug <- dat_aug |>
 # Check how many samples are in each class
 count(dat_aug, age_group)
 ```
+```{r}
+# Create a new column regarding the progression status of the disease
+dat_aug <- dat_aug |> 
+  mutate(
+    progression_status = factor(
+      case_when(
+        outcome_group %in% c("Group 1", "Group 3") ~ "Persistent",
+        outcome_group %in% c("Group 2", "Group 4") ~ "Regressive"
+      ),
+      levels = c("Regressive", "Persistent")
+    )
+  ) |> 
+  relocate(progression_status, .after = outcome_group)
+```
 
 ##Write the dat_aug into a tsv file
 ```{r}
