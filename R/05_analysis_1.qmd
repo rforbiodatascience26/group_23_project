@@ -1,0 +1,378 @@
+---
+title: "05_analysis_1"
+format: html
+---
+
+## Aim
+
+Which genes in the baseline biopsy differ between lesions that later
+persisted or progressed (Groups 1 + 3) and lesions that regressed or stayed
+normal (Groups 2 + 4)? 
+
+For every gene we fit two linear models:
+
+- Unadjusted: `log2_expr ~ outcome`
+- Adjusted: `log2_expr ~ outcome + baseline_frozen`
+
+The adjusted model asks whether a gene carries information about the
+future course of the lesion beyond how abnormal the tissue already was at
+baseline (persistent lesions were more often dysplastic at baseline, and the
+PCA in `04_describe` shows that expression follows histological grade).
+
+## Load libraries and data
+
+```{r}
+library("here")
+library("broom")
+library("tidyverse")
+
+# The RStudio Server has no display: draw PNG files without X11
+options(bitmapType = "cairo")
+
+dat_aug <- read_tsv(
+  here("data/03_augmented_data.tsv"),
+  show_col_types = FALSE
+)
+
+expr_clean <- read_tsv(
+  here("data/02_clean_expression.tsv"),
+  show_col_types = FALSE
+)
+```
+
+## Define the outcome
+
+Groups 1 and 3 became (or stayed) dysplastic at follow-up: persistent.
+Groups 2 and 4 were non-dysplastic at follow-up: regressive.
+"regressive" is the reference level, so a positive estimate means "higher in
+persistent lesions".
+
+```{r}
+dat_aug <- dat_aug |>
+  mutate(
+    outcome = case_when(
+      outcome_group %in% c("Group 1", "Group 3") ~ "persistent",
+      outcome_group %in% c("Group 2", "Group 4") ~ "regressive"
+    ),
+    outcome = factor(outcome, levels = c("regressive", "persistent"))
+  )
+
+# Check: 32 persistent and 31 regressive biopsies
+dat_aug |>
+  count(outcome_group, outcome)
+```
+
+## Gene symbol lookup
+
+`03_augment` names the gene columns by Entrez ID only. The symbols are taken
+from `02_clean_expression.tsv`, which holds both identifiers.
+
+```{r}
+gene_lookup <- expr_clean |>
+  select(ENTREZ_ID, SYMBOL) |>
+  rename(entrez_id = ENTREZ_ID, symbol = SYMBOL) |>
+  mutate(entrez_id = as.character(entrez_id))
+```
+
+## From wide to long format
+
+One row per biopsy and gene. Gene columns are the columns whose name is a
+number (Entrez ID).
+
+```{r}
+dat_long <- dat_aug |>
+  select(
+    sample_id,
+    outcome_group,
+    outcome,
+    baseline_frozen,
+    matches("^[0-9]+$")
+  ) |>
+  pivot_longer(
+    cols = matches("^[0-9]+$"),
+    names_to = "entrez_id",
+    values_to = "log2_expr"
+  ) |>
+  left_join(gene_lookup, by = "entrez_id")
+
+# Check: rows = 63 biopsies x number of genes, and every gene has a symbol
+dat_long |>
+  summarise(
+    n_rows = n(),
+    n_samples = n_distinct(sample_id),
+    n_genes = n_distinct(entrez_id),
+    n_missing_symbol = sum(is.na(symbol))
+  )
+```
+
+## Fit two linear models per gene
+
+Nest the data per gene, then fit both models with `map()`. We tidy each
+model straight away (`broom::tidy()`) instead of keeping ~40,000 full model
+objects, which would use a lot of memory.
+
+```{r}
+dat_nested <- dat_long |>
+  group_by(entrez_id, symbol) |>
+  nest() |>
+  ungroup() |>
+  mutate(
+    tidy_unadjusted = map(
+      .x = data,
+      .f = ~ lm(log2_expr ~ outcome, data = .x) |>
+        tidy(conf.int = TRUE, conf.level = 0.95)
+    ),
+    tidy_adjusted = map(
+      .x = data,
+      .f = ~ lm(log2_expr ~ outcome + baseline_frozen, data = .x) |>
+        tidy(conf.int = TRUE, conf.level = 0.95)
+    )
+  )
+```
+
+## Collect the outcome estimates and correct for multiple testing
+
+For each model we keep the `outcomepersistent` term: the difference in mean
+log2 expression between persistent and regressive lesions (log2 fold
+change). P-values are corrected per model with Benjamini-Hochberg (false
+discovery rate), as in the original paper (FDR ≤ 0.05).
+
+```{r}
+de_results <- dat_nested |>
+  select(entrez_id, symbol, tidy_unadjusted, tidy_adjusted) |>
+  pivot_longer(
+    cols = c(tidy_unadjusted, tidy_adjusted),
+    names_to = "model",
+    names_prefix = "tidy_",
+    values_to = "model_tidy"
+  ) |>
+  unnest(model_tidy) |>
+  filter(term == "outcomepersistent") |>
+  select(-term) |>
+  group_by(model) |>
+  mutate(q_value = p.adjust(p.value, method = "BH")) |>
+  ungroup() |>
+  mutate(
+    is_significant = q_value <= 0.05,
+    direction = case_when(
+      is_significant & estimate > 0 ~ "Higher in persistent",
+      is_significant & estimate < 0 ~ "Higher in regressive",
+      .default = "Not significant"
+    )
+  )
+```
+
+## Key numbers
+
+```{r}
+key_numbers <- de_results |>
+  group_by(model) |>
+  summarise(
+    n_genes_tested = n(),
+    n_significant = sum(is_significant),
+    n_higher_persistent = sum(direction == "Higher in persistent"),
+    n_higher_regressive = sum(direction == "Higher in regressive")
+  )
+
+key_numbers
+```
+
+## Genes highlighted in the paper
+
+The paper reports PLK1 (cell cycle), DSG3 and JUP (cell adhesion) as higher
+in persistent lesions.
+
+```{r}
+key_genes <- c("PLK1", "DSG3", "JUP")
+
+de_results |>
+  filter(symbol %in% key_genes) |>
+  select(symbol, model, estimate, conf.low, conf.high, p.value, q_value) |>
+  arrange(symbol, model)
+```
+
+## Plot 1: volcano plot (unadjusted model)
+
+```{r}
+volcano_plot <- de_results |>
+  filter(model == "unadjusted") |>
+  ggplot(aes(x = estimate, y = -log10(p.value), colour = direction)) +
+  geom_point(alpha = 0.5, size = 1) +
+  geom_label(
+    data = de_results |>
+      filter(model == "unadjusted", symbol %in% key_genes),
+    aes(label = symbol),
+    colour = "black",
+    size = 3,
+    nudge_y = 0.4
+  ) +
+  scale_colour_manual(
+    values = c(
+      "Higher in persistent" = "firebrick",
+      "Higher in regressive" = "steelblue",
+      "Not significant" = "grey70"
+    )
+  ) +
+  labs(
+    title = "Persistent vs regressive bronchial lesions",
+    x = "log2 fold change (persistent - regressive)",
+    y = "-log10(p-value)",
+    colour = "FDR <= 0.05"
+  ) +
+  theme_minimal()
+
+volcano_plot
+```
+
+## Plot 2: forest plot of the top 20 genes (unadjusted model)
+
+```{r}
+forest_plot <- de_results |>
+  filter(model == "unadjusted", is_significant) |>
+  slice_min(q_value, n = 20) |>
+  ggplot(aes(
+    x = estimate,
+    y = fct_reorder(symbol, estimate),
+    xmin = conf.low,
+    xmax = conf.high,
+    colour = direction
+  )) +
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  geom_errorbarh(height = 0.3) +
+  geom_point() +
+  scale_colour_manual(
+    values = c(
+      "Higher in persistent" = "firebrick",
+      "Higher in regressive" = "steelblue"
+    )
+  ) +
+  labs(
+    title = "Top 20 genes by FDR",
+    x = "log2 fold change with 95% CI",
+    y = NULL,
+    colour = NULL
+  ) +
+  theme_minimal()
+
+forest_plot
+```
+
+## Plot 3: does the effect survive adjustment for baseline grade?
+
+One point per gene. Points on the diagonal keep their effect after
+adjustment; points that move towards zero mainly reflect baseline severity.
+
+```{r}
+adjustment_comparison <- de_results |>
+  select(entrez_id, symbol, model, estimate, is_significant) |>
+  pivot_wider(
+    names_from = model,
+    values_from = c(estimate, is_significant)
+  ) |>
+  mutate(
+    significance = case_when(
+      is_significant_unadjusted & is_significant_adjusted ~ "Both models",
+      is_significant_unadjusted ~ "Unadjusted only",
+      is_significant_adjusted ~ "Adjusted only",
+      .default = "Neither"
+    )
+  )
+
+adjustment_comparison |>
+  count(significance)
+
+adjustment_plot <- adjustment_comparison |>
+  ggplot(aes(
+    x = estimate_unadjusted,
+    y = estimate_adjusted,
+    colour = significance
+  )) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed") +
+  geom_hline(yintercept = 0, colour = "grey50") +
+  geom_vline(xintercept = 0, colour = "grey50") +
+  geom_point(alpha = 0.5, size = 1) +
+  scale_colour_manual(
+    values = c(
+      "Both models" = "darkorange",
+      "Unadjusted only" = "steelblue",
+      "Adjusted only" = "purple",
+      "Neither" = "grey70"
+    )
+  ) +
+  labs(
+    title = "Effect of adjusting for baseline histological grade",
+    x = "log2 fold change, unadjusted",
+    y = "log2 fold change, adjusted for baseline grade",
+    colour = "Significant in"
+  ) +
+  theme_minimal()
+
+adjustment_plot
+```
+
+## Plot 4: the paper's key genes in the four outcome groups
+
+```{r}
+key_gene_plot <- dat_long |>
+  filter(symbol %in% key_genes) |>
+  ggplot(aes(x = outcome_group, y = log2_expr, fill = outcome)) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.6) +
+  geom_jitter(width = 0.15, size = 1) +
+  facet_wrap(~ symbol, scales = "free_y") +
+  labs(
+    title = "Genes highlighted in the original paper",
+    x = NULL,
+    y = "log2 expression",
+    fill = NULL
+  ) +
+  theme_minimal()
+
+key_gene_plot
+```
+
+## Save results and plots
+
+```{r}
+dir.create(here("results"), showWarnings = FALSE)
+
+write_tsv(de_results, here("results/05_de_results.tsv"))
+write_tsv(key_numbers, here("results/05_key_numbers.tsv"))
+
+ggsave(
+  here("results/05_volcano.png"),
+  volcano_plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+ggsave(
+  here("results/05_forest_top20.png"),
+  forest_plot,
+  width = 7,
+  height = 6,
+  dpi = 300
+)
+ggsave(
+  here("results/05_adjusted_vs_unadjusted.png"),
+  adjustment_plot,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+ggsave(
+  here("results/05_key_genes.png"),
+  key_gene_plot,
+  width = 10,
+  height = 4,
+  dpi = 300
+)
+```
+
+## Observations
+
+To be written after running the analysis (or maybe for the final presentation, don't know!):
+
+1.  How many genes are significant in each model, and in which direction?
+2.  How does this compare with the 395 genes reported in the paper?
+3.  Are PLK1, DSG3 and JUP higher in persistent lesions, as in the paper?
+4.  How many genes stay significant after adjusting for baseline grade?
