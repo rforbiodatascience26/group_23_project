@@ -12,6 +12,22 @@ library("tidyverse")
 dat_aug <- read_tsv(here("data/03_augmented_data.tsv"), show_col_types = FALSE)
 ```
 
+Give the outcome groups descriptive names and set the order of the class columns again:
+
+```{r}
+dat_aug <- dat_aug |>
+  mutate(
+    progression_status = factor(
+      progression_status,
+      levels = c("Persistent","Regressive", "Progressive", "Stable non-dysplasia")
+    ),
+    smoking_exposure = factor(
+      smoking_exposure,
+      levels = c("Never smoker", "Light smoker", "Moderate smoker", "Heavy smoker")
+    ),
+  )
+```
+
 ## 1. Histological transition: baseline → follow-up
 
 Bigger points mean more biopsies. Grades 4–7 are dysplasia, so the dashed line separates dysplastic (above) from nondysplastic (below) follow-up biopsies.

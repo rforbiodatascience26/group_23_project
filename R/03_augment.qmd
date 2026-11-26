@@ -34,19 +34,12 @@ slice_sample(dat_aug, n=10)
 
 dat_aug <- dat_aug |>
   mutate(
-    smoking_exposure = factor(
-      case_when(
+    smoking_exposure = case_when(
         smoking_pack_years == 0 ~ "Never smoker",
         smoking_pack_years > 0 & smoking_pack_years <= 20 ~ "Light smoker",
         smoking_pack_years > 20 & smoking_pack_years <= 40 ~ "Moderate smoker",
         smoking_pack_years > 40 ~ "Heavy smoker",
-      ),
-      levels = c("Never smoker",
-                 "Light smoker",
-                 "Moderate smoker",
-                 "Heavy smoker"),
-      ordered = TRUE
-    )
+      )
   ) |> 
   relocate(smoking_exposure, .after = smoking_pack_years)
 ```
@@ -56,15 +49,12 @@ dat_aug <- dat_aug |>
 # Create new columns regarding the progression status of the disease
 dat_aug <- dat_aug |> 
   mutate(
-    progression_status = factor(
-      case_when(
+    progression_status = case_when(
         outcome_group == "Group 1" ~ "Persistent",
         outcome_group == "Group 2" ~ "Regressive",
         outcome_group == "Group 3" ~ "Progressive",
         outcome_group == "Group 4" ~ "Stable non-dysplasia"
-      ),
-      levels = c("Persistent", "Regressive", "Progressive", "Stable non-dysplasia")
-    )
+      )
   ) |> 
   relocate(progression_status, .after = outcome_group)
 ```
