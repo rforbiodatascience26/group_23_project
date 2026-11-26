@@ -3,15 +3,19 @@ title: "01_load"
 format: html
 ---
 
+##Load libraries
 ```{r}
 library(GEOquery)
 library(Biobase)
 library(here)
 library(tidyverse)   #tidyverse last so no overshadowing from BioConductor packages
+```
 
+##Load and save data
+```{r}
 # Download the processed Series Matrix and annotations
-gse <- getGEO("GSE114489", GSEMatrix = TRUE)
-eset <- gse[[1]]
+eset <- getGEO("GSE114489", GSEMatrix = TRUE) |> 
+  pluck(1)
 
 # Extract the two datasets
 expression <- exprs(eset)
@@ -26,12 +30,11 @@ View(metadata)
 dir.create(here("data"), showWarnings = FALSE)
 
 # Convert matrix to data frame (in order to save it as a TSV file in data), preserving feature IDs
-expr <- expression |>
-  as.data.frame() |>
-  rownames_to_column(var = "feature_id")
+expression <- expression |>
+  as_tibble(rownames = "feature_id")
 
-metadata <- metadata |> 
-  rownames_to_column(var = "sample_id")
+metadata <- metadata |>
+  as_tibble(rownames = "sample_id")
 
 # Save datasets
 write_tsv(
@@ -39,7 +42,7 @@ write_tsv(
   here("data", "01_meta_load.tsv")
 )
 write_tsv(
-  expr,
+  expression,
   here("data", "01_expression_load.tsv")
 )
 

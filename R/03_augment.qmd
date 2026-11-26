@@ -2,104 +2,61 @@
 title: "03_augment"
 format: html
 ---
-##Load libraries and read data
+##Load libraries and data
 ```{r}
 library(here)
 library(tidyverse)
 
-expr <- read_tsv("../data/02_clean_expression.tsv")
-meta <- read_tsv("../data/02_clean_metadata.tsv")
+expr_clean <- read_tsv("../data/02_clean_expression.tsv", show_col_types = FALSE)
+metadata_clean <- read_tsv("../data/02_clean_metadata.tsv", show_col_types = FALSE)
 ```
 
 ##Transpose the expression dataframe so columns become entrez IDs and rows become samples, to match the format of the metadata
 ```{r}
-expr_transposed <- expr |>
-  dplyr::select(-SYMBOL)  |>            #symbol column is droped
-  pivot_longer(-ENTREZ_ID, names_to = "sample_id", values_to = "expr") |> 
-  pivot_wider(names_from = ENTREZ_ID, values_from = expr)
+expr_transposed <- expr_clean |>
+  dplyr::select(-SYMBOL)  |>            #symbol column is dropped
+  pivot_longer(-ENTREZ_ID, names_to = "sample_id", values_to = "expr_clean") |> 
+  pivot_wider(names_from = ENTREZ_ID, values_from = expr_clean)
 ```
 
 ##Inner join expression to meta dataset into a combined wide dataset
 ```{r}
-dat_aug <- meta |> 
+dat_aug <- metadata_clean |> 
   inner_join(expr_transposed, by = "sample_id")
 
 dim(dat_aug)
-slice_sample(dat_aug,n=10)
+slice_sample(dat_aug, n=10)
 ```
 
 ##Enriching the joint dataset with new columns useful for descriptive statistics and visualization
 ```{r}
-#Create a new "smoking_exposure" column that categorizes the samples based on the values in "smoking_pack_years" according to th e classification proposed by Giuliano et al. (10.1001/jamaoto.2023.1573). These categories are then converted into an ordered factor.
+#Create a new "smoking_exposure" column that categorizes the samples based on the values in "smoking_pack_years" according to the classification proposed by Giuliano et al. (10.1001/jamaoto.2023.1573). These categories are then converted into an ordered factor.
 
 dat_aug <- dat_aug |>
   mutate(
     smoking_exposure = case_when(
-      smoking_pack_years == 0 ~ "Never smoker",
-      smoking_pack_years > 0 & smoking_pack_years <= 20 ~ "Light smoker",
-      smoking_pack_years > 20 & smoking_pack_years <= 40 ~ "Moderate smoker",
-      smoking_pack_years > 40 ~ "Heavy smoker",
-      TRUE ~ NA_character_
-    )
-  )
-
-dat_aug <- dat_aug |>
-  mutate(
-    smoking_exposure = factor(
-      smoking_exposure,
-      levels = c(
-        "Never smoker",
-        "Light smoker",
-        "Moderate smoker",
-        "Heavy smoker"
-      ),
-      ordered = TRUE
-    )
-  )
-
-dat_aug <- dat_aug |>
+        smoking_pack_years == 0 ~ "Never smoker",
+        smoking_pack_years > 0 & smoking_pack_years <= 20 ~ "Light smoker",
+        smoking_pack_years > 20 & smoking_pack_years <= 40 ~ "Moderate smoker",
+        smoking_pack_years > 40 ~ "Heavy smoker",
+      )
+  ) |> 
   relocate(smoking_exposure, .after = smoking_pack_years)
 ```
 
-New column classifying the ages based on the dataset's own distribution. There is no standard age classification for this cohort, so we use the data's own distribution. First we look at the descriptive statistics of `age`:
 
 ```{r}
-dat_aug |>
-  pull(age) |>
-  summary()
-```
-
-The ages go from 43 to 77, with a median of 61. The 1st quartile is 55.5 and the 3rd quartile is 65. We use these two quartiles as cut-offs:
-
--   **Younger**: below the 1st quartile (the youngest 25% of the samples)
--   **Middle-aged**: between the 1st and 3rd quartile (the middle 50%)
--   **Older**: above the 3rd quartile (the oldest 25%)
-
-```{r}
-#Create a new "age_group" column from the quartiles and convert it into an ordered factor
-dat_aug <- dat_aug |>
+# Create new columns regarding the progression status of the disease
+dat_aug <- dat_aug |> 
   mutate(
-    age_group = case_when(
-      age < 55.5 ~ "Younger",
-      age <= 65 ~ "Middle-aged",
-      age > 65 ~ "Older"
-    )
-  )
-
-dat_aug <- dat_aug |>
-  mutate(
-    age_group = factor(
-      age_group,
-      levels = c("Younger", "Middle-aged", "Older"),
-      ordered = TRUE
-    )
-  )
-
-dat_aug <- dat_aug |>
-  relocate(age_group, .after = age)
-
-# Check how many samples are in each class
-count(dat_aug, age_group)
+    progression_status = case_when(
+        outcome_group == "Group 1" ~ "Persistent",
+        outcome_group == "Group 2" ~ "Regressive",
+        outcome_group == "Group 3" ~ "Progressive",
+        outcome_group == "Group 4" ~ "Stable non-dysplasia"
+      )
+  ) |> 
+  relocate(progression_status, .after = outcome_group)
 ```
 
 ##Write the dat_aug into a tsv file

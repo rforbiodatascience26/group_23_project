@@ -42,24 +42,22 @@ expr_clean <- read_tsv(
 
 ## Define the outcome
 
-Groups 1 and 3 became (or stayed) dysplastic at follow-up: persistent.
-Groups 2 and 4 were non-dysplastic at follow-up: regressive.
-"regressive" is the reference level, so a positive estimate means "higher in
-persistent lesions".
+Groups 1 and 3 became (or stayed) dysplastic at follow-up.
+Groups 2 and 4 were non-dysplastic at follow-up.
+"Nondysplastic" is the reference level, so a positive estimate means "higher in
+dysplastic lesions".
 
 ```{r}
-dat_aug <- dat_aug |>
-  mutate(
-    outcome = case_when(
-      outcome_group %in% c("Group 1", "Group 3") ~ "persistent",
-      outcome_group %in% c("Group 2", "Group 4") ~ "regressive"
-    ),
-    outcome = factor(outcome, levels = c("regressive", "persistent"))
+# Set the follow-up status as factors
+dat_aug <- dat_aug |> 
+  mutate(followup_status = factor(
+    followup_status,
+    levels = c("Nondysplastic", "Dysplastic")
+    )
   )
-
-# Check: 32 persistent and 31 regressive biopsies
+# Check: 32 dysplastic and 31 non-dysplastic follow-up biopsies
 dat_aug |>
-  count(outcome_group, outcome)
+  count(outcome_group, followup_status)
 ```
 
 ## Gene symbol lookup
@@ -69,8 +67,8 @@ from `02_clean_expression.tsv`, which holds both identifiers.
 
 ```{r}
 gene_lookup <- expr_clean |>
-  select(ENTREZ_ID, SYMBOL) |>
-  rename(entrez_id = ENTREZ_ID, symbol = SYMBOL) |>
+  dplyr::select(ENTREZ_ID, SYMBOL) |>
+  dplyr::rename(entrez_id = ENTREZ_ID, symbol = SYMBOL) |>
   mutate(entrez_id = as.character(entrez_id))
 ```
 
@@ -81,10 +79,10 @@ number (Entrez ID).
 
 ```{r}
 dat_long <- dat_aug |>
-  select(
+  dplyr::select(
     sample_id,
     outcome_group,
-    outcome,
+    followup_status,
     baseline_frozen,
     matches("^[0-9]+$")
   ) |>
@@ -119,12 +117,12 @@ dat_nested <- dat_long |>
   mutate(
     tidy_unadjusted = map(
       .x = data,
-      .f = ~ lm(log2_expr ~ outcome, data = .x) |>
+      .f = ~ lm(log2_expr ~ followup_status, data = .x) |>
         tidy(conf.int = TRUE, conf.level = 0.95)
     ),
     tidy_adjusted = map(
       .x = data,
-      .f = ~ lm(log2_expr ~ outcome + baseline_frozen, data = .x) |>
+      .f = ~ lm(log2_expr ~ followup_status + baseline_frozen, data = .x) |>
         tidy(conf.int = TRUE, conf.level = 0.95)
     )
   )
@@ -132,14 +130,14 @@ dat_nested <- dat_long |>
 
 ## Collect the outcome estimates and correct for multiple testing
 
-For each model we keep the `outcomepersistent` term: the difference in mean
+For each model we keep the `followup_statusDysplastic` term: the difference in mean
 log2 expression between persistent and regressive lesions (log2 fold
 change). P-values are corrected per model with Benjamini-Hochberg (false
 discovery rate), as in the original paper (FDR ≤ 0.05).
 
 ```{r}
 de_results <- dat_nested |>
-  select(entrez_id, symbol, tidy_unadjusted, tidy_adjusted) |>
+  dplyr::select(entrez_id, symbol, tidy_unadjusted, tidy_adjusted) |>
   pivot_longer(
     cols = c(tidy_unadjusted, tidy_adjusted),
     names_to = "model",
@@ -147,8 +145,8 @@ de_results <- dat_nested |>
     values_to = "model_tidy"
   ) |>
   unnest(model_tidy) |>
-  filter(term == "outcomepersistent") |>
-  select(-term) |>
+  filter(term == "followup_statusDysplastic") |>
+  dplyr::select(-term) |>
   group_by(model) |>
   mutate(q_value = p.adjust(p.value, method = "BH")) |>
   ungroup() |>
@@ -187,7 +185,7 @@ key_genes <- c("PLK1", "DSG3", "JUP")
 
 de_results |>
   filter(symbol %in% key_genes) |>
-  select(symbol, model, estimate, conf.low, conf.high, p.value, q_value) |>
+  dplyr::select(symbol, model, estimate, conf.low, conf.high, p.value, q_value) |>
   arrange(symbol, model)
 ```
 
@@ -264,7 +262,7 @@ adjustment; points that move towards zero mainly reflect baseline severity.
 
 ```{r}
 adjustment_comparison <- de_results |>
-  select(entrez_id, symbol, model, estimate, is_significant) |>
+  dplyr::select(entrez_id, symbol, model, estimate, is_significant) |>
   pivot_wider(
     names_from = model,
     values_from = c(estimate, is_significant)
@@ -315,7 +313,7 @@ adjustment_plot
 ```{r}
 key_gene_plot <- dat_long |>
   filter(symbol %in% key_genes) |>
-  ggplot(aes(x = outcome_group, y = log2_expr, fill = outcome)) +
+  ggplot(aes(x = outcome_group, y = log2_expr, fill = followup_status)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.6) +
   geom_jitter(width = 0.15, size = 1) +
   facet_wrap(~ symbol, scales = "free_y") +
