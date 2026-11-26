@@ -12,40 +12,14 @@ library("tidyverse")
 dat_aug <- read_tsv(here("data/03_augmented_data.tsv"), show_col_types = FALSE)
 ```
 
-Give the outcome groups descriptive names and set the order of the class columns again:
-
-```{r}
-dat_aug <- dat_aug |>
-  mutate(
-    outcome_group = case_when(
-      outcome_group == "Group 1" ~ "Persistent dysplasia",
-      outcome_group == "Group 2" ~ "Regressive dysplasia",
-      outcome_group == "Group 3" ~ "Progressive",
-      outcome_group == "Group 4" ~ "Stable normal"
-    ),
-    outcome_group = factor(
-      outcome_group,
-      levels = c("Persistent dysplasia", "Regressive dysplasia", "Progressive", "Stable normal")
-    ),
-    smoking_exposure = factor(
-      smoking_exposure,
-      levels = c("Never smoker", "Light smoker", "Moderate smoker", "Heavy smoker")
-    ),
-    age_group = factor(
-      age_group,
-      levels = c("Younger", "Middle-aged", "Older")
-    )
-  )
-```
-
 ## 1. Histological transition: baseline → follow-up
 
 Bigger points mean more biopsies. Grades 4–7 are dysplasia, so the dashed line separates dysplastic (above) from nondysplastic (below) follow-up biopsies.
 
 ```{r}
 dat_aug |>
-  count(outcome_group, baseline_frozen, followup) |>
-  ggplot(aes(x = baseline_frozen, y = followup, colour = outcome_group)) +
+  count(progression_status, baseline_frozen, followup) |>
+  ggplot(aes(x = baseline_frozen, y = followup, colour = progression_status)) +
   geom_point(aes(size = n)) +
   geom_hline(yintercept = 3.5, linetype = "dashed") +
   labs(
@@ -57,16 +31,15 @@ dat_aug |>
   )
 ```
 
-## 2. Age distribution and age classes
+## 2. Age distribution
 
 ```{r}
-ggplot(dat_aug, aes(x = age, fill = age_group)) +
-  geom_bar() +
+ggplot(dat_aug, aes(x = age)) +
+  geom_bar(fill = "cadetblue3") +
   labs(
-    title = "Age distribution and age classes",
+    title = "Age distribution",
     x = "Age (years)",
-    y = "Count",
-    fill = "Age group"
+    y = "Count"
   )
 ```
 
@@ -92,7 +65,7 @@ ggplot(dat_aug, aes(x = age, y = smoking_pack_years)) +
 ## 4. Is smoking balanced across the outcome groups?
 
 ```{r}
-ggplot(dat_aug, aes(x = outcome_group, fill = smoking_exposure)) +
+ggplot(dat_aug, aes(x = progression_status, fill = smoking_exposure)) +
   geom_bar() +
   labs(title = "Smoking class within each outcome group", x = NULL, y = "Count", fill = NULL)
 ```
@@ -103,12 +76,12 @@ Gene columns are named by Entrez ID (a number), so `matches("^[0-9]")` selects a
 
 ```{r}
 pca <- dat_aug |>
-  select(matches("^[0-9]")) |>
+  dplyr::select(matches("^[0-9]")) |>
   prcomp(scale. = TRUE)
 
 pca_data <- bind_cols(
-  dat_aug |> select(outcome_group, baseline_frozen),
-  as_tibble(pca$x)
+  dat_aug |> dplyr::select(progression_status, baseline_frozen),
+  pca |> pluck("x") |> as_tibble()
 )
 
 # Does PC2 follow the histological grade?
@@ -117,7 +90,7 @@ pca_data |>
 ```
 
 ```{r}
-ggplot(pca_data, aes(x = PC1, y = PC2, colour = outcome_group)) +
+ggplot(pca_data, aes(x = PC1, y = PC2, colour = progression_status)) +
   geom_point() +
   labs(title = "PCA of all genes", colour = NULL)
 ```
@@ -128,9 +101,9 @@ ggplot(pca_data, aes(x = PC1, y = PC2, colour = outcome_group)) +
 
 ```{r}
 dat_aug |>
-  select(outcome_group, MKI67 = "4288", TOP2A = "7153", FOXJ1 = "2302", KRT6A = "3853") |>
-  pivot_longer(cols = -outcome_group, names_to = "gene", values_to = "expression") |>
-  ggplot(aes(x = gene, y = expression, fill = outcome_group)) +
+  dplyr::select(progression_status, MKI67 = "4288", TOP2A = "7153", FOXJ1 = "2302", KRT6A = "3853") |>
+  pivot_longer(cols = -progression_status, names_to = "gene", values_to = "expression") |>
+  ggplot(aes(x = gene, y = expression, fill = progression_status)) +
   geom_boxplot() +
   labs(title = "Marker genes by outcome group", x = NULL, y = "log2 expression", fill = NULL)
 ```
@@ -141,7 +114,7 @@ dat_aug |>
 
 ```{r}
 dat_aug |>
-  select(smoking_exposure, CYP1B1 = "1545", SCGB1A1 = "7356") |>
+  dplyr::select(smoking_exposure, CYP1B1 = "1545", SCGB1A1 = "7356") |>
   pivot_longer(cols = -smoking_exposure, names_to = "gene", values_to = "expression") |>
   ggplot(aes(x = gene, y = expression, fill = smoking_exposure)) +
   geom_boxplot() +

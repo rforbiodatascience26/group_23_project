@@ -1,0 +1,3 @@
+model	n_genes_tested	n_significant	n_higher_persistent	n_higher_regressive
+adjusted	19998	1048	505	543
+unadjusted	19998	3101	1448	1653

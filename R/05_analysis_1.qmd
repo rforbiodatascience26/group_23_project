@@ -69,8 +69,8 @@ from `02_clean_expression.tsv`, which holds both identifiers.
 
 ```{r}
 gene_lookup <- expr_clean |>
-  select(ENTREZ_ID, SYMBOL) |>
-  rename(entrez_id = ENTREZ_ID, symbol = SYMBOL) |>
+  dplyr::select(ENTREZ_ID, SYMBOL) |>
+  dplyr::rename(entrez_id = ENTREZ_ID, symbol = SYMBOL) |>
   mutate(entrez_id = as.character(entrez_id))
 ```
 
@@ -81,7 +81,7 @@ number (Entrez ID).
 
 ```{r}
 dat_long <- dat_aug |>
-  select(
+  dplyr::select(
     sample_id,
     outcome_group,
     outcome,
@@ -139,7 +139,7 @@ discovery rate), as in the original paper (FDR ≤ 0.05).
 
 ```{r}
 de_results <- dat_nested |>
-  select(entrez_id, symbol, tidy_unadjusted, tidy_adjusted) |>
+  dplyr::select(entrez_id, symbol, tidy_unadjusted, tidy_adjusted) |>
   pivot_longer(
     cols = c(tidy_unadjusted, tidy_adjusted),
     names_to = "model",
@@ -148,7 +148,7 @@ de_results <- dat_nested |>
   ) |>
   unnest(model_tidy) |>
   filter(term == "outcomepersistent") |>
-  select(-term) |>
+  dplyr::select(-term) |>
   group_by(model) |>
   mutate(q_value = p.adjust(p.value, method = "BH")) |>
   ungroup() |>
@@ -187,7 +187,7 @@ key_genes <- c("PLK1", "DSG3", "JUP")
 
 de_results |>
   filter(symbol %in% key_genes) |>
-  select(symbol, model, estimate, conf.low, conf.high, p.value, q_value) |>
+  dplyr::select(symbol, model, estimate, conf.low, conf.high, p.value, q_value) |>
   arrange(symbol, model)
 ```
 
@@ -264,7 +264,7 @@ adjustment; points that move towards zero mainly reflect baseline severity.
 
 ```{r}
 adjustment_comparison <- de_results |>
-  select(entrez_id, symbol, model, estimate, is_significant) |>
+  dplyr::select(entrez_id, symbol, model, estimate, is_significant) |>
   pivot_wider(
     names_from = model,
     values_from = c(estimate, is_significant)

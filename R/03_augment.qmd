@@ -102,7 +102,7 @@ dat_aug <- dat_aug |>
         outcome_group == "Group 3" ~ "Progressive",
         outcome_group == "Group 4" ~ "Stable non-dysplasia"
       ),
-      levels = c("Stable non-dysplasia", "Persistent", "Regressive dysplasia", "Progressive")
+      levels = c("Persistent", "Regressive", "Progressive", "Stable non-dysplasia")
     )
   ) |> 
   relocate(progression_status, .after = outcome_group)

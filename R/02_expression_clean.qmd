@@ -19,14 +19,14 @@ expr_clean <- expr_clean |>
   dplyr::rename(probeID = 1)
 
 #Drop NAs and duplicates
-initial <- dim(expr_clean)
+dim(expr_clean)
 
 expr_clean <- expr_clean |> 
   mutate(probeID = as.character(probeID)) |> 
   distinct(probeID, .keep_all = TRUE) |> 
   drop_na()
 
-final <- dim(expr_clean)
+dim(expr_clean)
 ```
 As we can see no NAs or duplicates existed in the data frame
 
