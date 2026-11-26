@@ -42,24 +42,22 @@ expr_clean <- read_tsv(
 
 ## Define the outcome
 
-Groups 1 and 3 became (or stayed) dysplastic at follow-up: persistent.
-Groups 2 and 4 were non-dysplastic at follow-up: regressive.
-"regressive" is the reference level, so a positive estimate means "higher in
-persistent lesions".
+Groups 1 and 3 became (or stayed) dysplastic at follow-up.
+Groups 2 and 4 were non-dysplastic at follow-up.
+"Nondysplastic" is the reference level, so a positive estimate means "higher in
+dysplastic lesions".
 
 ```{r}
-dat_aug <- dat_aug |>
-  mutate(
-    outcome = case_when(
-      outcome_group %in% c("Group 1", "Group 3") ~ "persistent",
-      outcome_group %in% c("Group 2", "Group 4") ~ "regressive"
-    ),
-    outcome = factor(outcome, levels = c("regressive", "persistent"))
+# Set the follow-up status as factors
+dat_aug <- dat_aug |> 
+  mutate(followup_status = factor(
+    followup_status,
+    levels = c("Nondysplastic", "Dysplastic")
+    )
   )
-
-# Check: 32 persistent and 31 regressive biopsies
+# Check: 32 dysplastic and 31 non-dysplastic follow-up biopsies
 dat_aug |>
-  count(outcome_group, outcome)
+  count(outcome_group, followup_status)
 ```
 
 ## Gene symbol lookup
@@ -84,7 +82,7 @@ dat_long <- dat_aug |>
   dplyr::select(
     sample_id,
     outcome_group,
-    outcome,
+    followup_status,
     baseline_frozen,
     matches("^[0-9]+$")
   ) |>
@@ -119,12 +117,12 @@ dat_nested <- dat_long |>
   mutate(
     tidy_unadjusted = map(
       .x = data,
-      .f = ~ lm(log2_expr ~ outcome, data = .x) |>
+      .f = ~ lm(log2_expr ~ followup_status, data = .x) |>
         tidy(conf.int = TRUE, conf.level = 0.95)
     ),
     tidy_adjusted = map(
       .x = data,
-      .f = ~ lm(log2_expr ~ outcome + baseline_frozen, data = .x) |>
+      .f = ~ lm(log2_expr ~ followup_status + baseline_frozen, data = .x) |>
         tidy(conf.int = TRUE, conf.level = 0.95)
     )
   )
@@ -132,7 +130,7 @@ dat_nested <- dat_long |>
 
 ## Collect the outcome estimates and correct for multiple testing
 
-For each model we keep the `outcomepersistent` term: the difference in mean
+For each model we keep the `followup_statusDysplastic` term: the difference in mean
 log2 expression between persistent and regressive lesions (log2 fold
 change). P-values are corrected per model with Benjamini-Hochberg (false
 discovery rate), as in the original paper (FDR ≤ 0.05).
@@ -147,7 +145,7 @@ de_results <- dat_nested |>
     values_to = "model_tidy"
   ) |>
   unnest(model_tidy) |>
-  filter(term == "outcomepersistent") |>
+  filter(term == "followup_statusDysplastic") |>
   dplyr::select(-term) |>
   group_by(model) |>
   mutate(q_value = p.adjust(p.value, method = "BH")) |>
@@ -315,7 +313,7 @@ adjustment_plot
 ```{r}
 key_gene_plot <- dat_long |>
   filter(symbol %in% key_genes) |>
-  ggplot(aes(x = outcome_group, y = log2_expr, fill = outcome)) +
+  ggplot(aes(x = outcome_group, y = log2_expr, fill = followup_status)) +
   geom_boxplot(outlier.shape = NA, alpha = 0.6) +
   geom_jitter(width = 0.15, size = 1) +
   facet_wrap(~ symbol, scales = "free_y") +

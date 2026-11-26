@@ -102,16 +102,14 @@ metadata_clean <- metadata_clean |>
   mutate(
     baseline_status = case_when(
       baseline_frozen %in% 1:2 ~ "Nondysplastic",
-      baseline_frozen %in% 4:7 ~ "Dysplastic",
-      TRUE ~ NA_character_
-    ),
+      baseline_frozen %in% 4:7 ~ "Dysplastic"
+      ),
 
     followup_status = case_when(
-      followup %in% 1:3 ~ "Nondysplastic",
-      followup %in% 4:7 ~ "Dysplastic",
-      TRUE ~ NA_character_
-    )
-  )
+        followup %in% 1:3 ~ "Nondysplastic",
+        followup %in% 4:7 ~ "Dysplastic"
+        )
+      )
 ```
 
 ```{r}
