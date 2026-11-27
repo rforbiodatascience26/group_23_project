@@ -50,13 +50,13 @@ dat_aug <- dat_aug |>
 dat_aug <- dat_aug |> 
   mutate(
     progression_status = case_when(
-        outcome_group == "Group 1" ~ "Persistent",
-        outcome_group == "Group 2" ~ "Regressive",
-        outcome_group == "Group 3" ~ "Progressive",
-        outcome_group == "Group 4" ~ "Stable non-dysplasia"
+        original_group == "Group 1" ~ "Persistent",
+        original_group == "Group 2" ~ "Regressive",
+        original_group == "Group 3" ~ "Progressive",
+        original_group == "Group 4" ~ "Stable non-dysplasia"
       )
   ) |> 
-  relocate(progression_status, .after = outcome_group)
+  relocate(progression_status, .after = original_group)
 ```
 
 ##Write the dat_aug into a tsv file
