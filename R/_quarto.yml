@@ -1,6 +1,0 @@
-project:
-  output-dir: ../results
-  
-format:
-  html:
-    embed-resources: true
