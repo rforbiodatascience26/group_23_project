@@ -5,10 +5,11 @@ format: html
 
 ##Load libraries and data
 ```{r}
+library(here)
 library(hugene10sttranscriptcluster.db) 
 library(tidyverse)                     
 
-expr_clean <- read_tsv("../data/01_expression_load.tsv",
+expr_clean <- read_tsv(here("data/01_expression_load.tsv"),
                        show_col_types = FALSE)
 ```
 
@@ -67,6 +68,6 @@ expr_clean |>
 
 ##Save the expr_clean to a tsv file
 ```{r}
-write_tsv(expr_clean, "../data/02_clean_expression.tsv")
+write_tsv(expr_clean, here("data/02_clean_expression.tsv"))
 ```
 
