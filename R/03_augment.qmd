@@ -7,8 +7,8 @@ format: html
 library(here)
 library(tidyverse)
 
-expr_clean <- read_tsv("../data/02_clean_expression.tsv", show_col_types = FALSE)
-metadata_clean <- read_tsv("../data/02_clean_metadata.tsv", show_col_types = FALSE)
+expr_clean <- read_tsv(here("data","02_clean_expression.tsv"), show_col_types = FALSE)
+metadata_clean <- read_tsv(here("data","02_clean_metadata.tsv"), show_col_types = FALSE)
 ```
 
 ##Transpose the expression dataframe so columns become entrez IDs and rows become samples, to match the format of the metadata
@@ -50,13 +50,13 @@ dat_aug <- dat_aug |>
 dat_aug <- dat_aug |> 
   mutate(
     progression_status = case_when(
-        original_group == "Group 1" ~ "Persistent",
-        original_group == "Group 2" ~ "Regressive",
-        original_group == "Group 3" ~ "Progressive",
-        original_group == "Group 4" ~ "Stable non-dysplasia"
+        outcome_group == "Group 1" ~ "Persistent",
+        outcome_group == "Group 2" ~ "Regressive",
+        outcome_group == "Group 3" ~ "Progressive",
+        outcome_group == "Group 4" ~ "Stable non-dysplasia"
       )
   ) |> 
-  relocate(progression_status, .after = original_group)
+  relocate(progression_status, .after = outcome_group)
 ```
 
 ##Write the dat_aug into a tsv file
