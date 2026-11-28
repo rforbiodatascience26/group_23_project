@@ -51,6 +51,28 @@ probe_map <- AnnotationDbi::select(
 
 ```
 
+```{r}
+# Count how many probes mapped to each gene before collapsing
+probe_collapse_summary <- probe_map |>
+  count(ENTREZ_ID, SYMBOL, name = "n_probes") |>  #count the number of rows of probes per unique gene 
+  count(n_probes, name = "n_genes") |> #count the occurrences of the same number of probes per gene
+  mutate(
+    total_probes = n_probes * n_genes
+  )
+
+probe_collapse_summary |>
+  ggplot(aes(x = n_probes, weight = n_genes)) +
+  geom_density(fill = "gray", alpha = 0.5, color = "black", bw = 0.8) +
+  labs(
+    title = "Density of Probes Mapped per Gene",
+    x = "Number of Probes per Gene",
+    y = "Density"
+  ) 
+
+probe_collapse_summary
+```
+As we can see the majority of genes (18784) are covered by only one probe, and the number of genes with n number of probes drops exponentially as n increases.  
+
 ##Join ENTREZ IDs data frame to expr data frame
 ```{r}
 # Join ENTREZ IDs to expression data and collapse probe duplicates to ENTREZ IDs by averaging the values
